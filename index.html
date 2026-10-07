@@ -281,7 +281,8 @@ textarea.inp{height:110px;padding:12px 14px;font-size:16px;font-family:ui-monosp
 .gauge i.ghost{width:14px;height:14px;margin:-7px 0 0 -7px;background:transparent;border:2px dashed rgba(255,255,255,.85);box-shadow:none}
 .gscale{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.3px}
 .fig .note{margin-top:8px}
-.ftoday{display:flex;gap:14px;align-items:center}
+.ftoday{display:flex;flex-direction:column;gap:10px}
+.frow{display:flex;gap:14px;align-items:center}
 .kring{position:relative;width:96px;height:96px;flex:none}
 .kring svg{width:96px;height:96px;transform:rotate(-90deg)}
 .kring .rc{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
@@ -351,6 +352,41 @@ textarea.inp{height:110px;padding:12px 14px;font-size:16px;font-family:ui-monosp
 @keyframes spin{to{transform:rotate(360deg)}}
 .recent .pill{font-size:12.5px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .flist .row .rm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* energy balance: eaten − Grundbedarf − Sport */
+.ebal{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;font-size:13px;font-variant-numeric:tabular-nums}
+.eb{display:flex;justify-content:space-between;align-items:baseline;gap:8px;color:var(--muted)}
+.eb span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.eb b{color:var(--text);font-weight:600;white-space:nowrap}
+.eb.sp b{color:#ff9a62}
+.eb.tot{margin-top:2px;padding-top:6px;border-top:1px solid var(--line);color:var(--text);font-weight:700}
+.eb.tot b{font-family:var(--font-display);font-size:15px}
+.eb.tot.up b{color:#ffb08a}.eb.tot.down b{color:var(--good)}
+.ftoday .krest small{margin-top:2px}
+
+/* ---------- strava ---------- */
+.svbtn{color:#fff;background:linear-gradient(180deg,#ff7a36,#fc4c02);box-shadow:0 10px 24px rgba(252,76,2,.28),inset 0 1px 0 rgba(255,255,255,.35)}
+.svbtn[disabled]{opacity:.55}
+.strava{display:flex;flex-direction:column;gap:12px}
+.svh{display:flex;align-items:center;gap:12px}
+.svlogo{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;background:rgba(252,76,2,.16);color:#ff8a4c}
+.svlogo svg{width:20px;height:20px}
+.svsteps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.svsteps li{display:flex;gap:10px;font-size:13.5px;line-height:1.4;color:#e9dbcc}
+.svsteps .n{width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-items:center;font-size:12px;font-weight:700;background:rgba(252,76,2,.18);color:#ffb08a;margin-top:-1px}
+.svsteps a{color:#ffb08a;font-weight:700}
+.copyrow{display:flex;align-items:center;gap:8px;padding:7px 7px 7px 12px;border-radius:12px;background:rgba(0,0,0,.25);border:1px solid var(--line);text-align:left}
+.copyrow code{flex:1;min-width:0;font-size:12.5px;font-family:ui-monospace,Menlo,monospace;overflow-wrap:anywhere;color:#f0e2d4;-webkit-user-select:all;user-select:all}
+.copyrow button{flex:none;font-size:12px;font-weight:700;padding:7px 10px;border-radius:9px;background:rgba(255,255,255,.08);color:#ffd08a}
+.inp.mono{font-family:ui-monospace,Menlo,monospace;font-size:15px}
+.flink.inl{display:inline;padding:0;font-size:inherit}
+.svwarn{margin:0;padding:9px 12px;border-radius:12px;background:rgba(255,170,80,.12);color:#ffc890;font-size:13px;line-height:1.4}
+.svtag{display:inline-block;font-style:normal;font-size:10.5px;font-weight:700;letter-spacing:.3px;padding:1px 6px;border-radius:999px;background:rgba(252,76,2,.18);color:#ff9a62;margin-left:6px;vertical-align:1px}
+.svline{display:flex;align-items:center;gap:11px;padding:10px 12px;text-align:left;width:100%}
+.svline .stx b{font-size:13.5px}
+.svline .chev{font-size:22px;color:var(--muted);line-height:1}
+.svmini{flex:none;font-size:12.5px;font-weight:700;padding:8px 12px;border-radius:10px;background:rgba(252,76,2,.16);color:#ffb08a}
+.svmini[disabled]{opacity:.5}
+.gest{margin:-4px 0 0}
 
 /* ---------- barcode scanner ---------- */
 .scan{position:absolute;inset:0;z-index:70;background:#000;overflow:hidden}
@@ -619,10 +655,16 @@ function commit(urgent){
 const totalXP=s=>{let t=Number(s&&s.xp)||0;for(let l=1;l<(Number(s&&s.level)||1);l++)t+=100*l;return t};
 function mergeDay(x,y){
   if(!x||!y){const d=x||y;return d?JSON.parse(JSON.stringify(d)):d}
+  // trainings: union; Strava ones by activity id, a typed-in twin of a Strava workout is dropped,
+  // a deletion on either side wins (tombstone)
+  const gdel=new Set([...(x.gymDel||[]),...(y.gymDel||[])].map(String)),all=[...(x.gym||[]),...(y.gym||[])].filter(Boolean);
+  const twins=new Set(all.filter(g=>g.sid&&g.tw).map(g=>Number(g.tw)));
   const seen=new Set(),gym=[];
-  for(const g of [...(x.gym||[]),...(y.gym||[])]){
-    if(!g)continue;const e={m:Number(g.m)||0,type:String(g.type||'Training'),t:Number(g.t)||0};
-    const k=e.t+'|'+e.m+'|'+e.type;if(seen.has(k))continue;seen.add(k);gym.push(e);
+  for(const g of all){
+    const e={m:Number(g.m)||0,type:String(g.type||'Training'),t:Number(g.t)||0};
+    if(g.sid){e.sid=String(g.sid);e.src='strava';if(Number(g.kcal)>0)e.kcal=Math.round(Number(g.kcal));if(g.tw)e.tw=Number(g.tw)}
+    else if(twins.has(e.t))continue;
+    const k=e.sid?'s'+e.sid:e.t+'|'+e.m+'|'+e.type;if(seen.has(k)||gdel.has(gymKey(e)))continue;seen.add(k);gym.push(e);
   }
   gym.sort((a,b)=>a.t-b.t);
   const gymMin=gym.reduce((n,g)=>n+g.m,0);
@@ -634,8 +676,9 @@ function mergeDay(x,y){
   for(const e of [...(x.food||[]),...(y.food||[])])if(e&&e.id&&!del.has(e.id)&&!fm.has(e.id))fm.set(e.id,JSON.parse(JSON.stringify(e)));
   const food=[...fm.values()].sort((a,b)=>(a.t||0)-(b.t||0));
   return{gym,gymMin,meal:!!(x.meal||y.meal),weight:w.weight!=null?Number(w.weight):null,wt:Number(w.wt)||0,water:!!(x.water||y.water),ixp:Math.max(Number(x.ixp)||0,Number(y.ixp)||0),
-    food,foodDel:[...del].slice(-200),fxp:Math.max(Number(x.fxp)||0,Number(y.fxp)||0)};
+    food,foodDel:[...del].slice(-200),fxp:Math.max(Number(x.fxp)||0,Number(y.fxp)||0),gymDel:[...gdel].slice(-100)};
 }
+function gymKey(g){return g.sid?'s'+g.sid:'t'+g.t}
 function mergeSaves(base,other){
   const m=normalize(JSON.parse(JSON.stringify(base))),o=normalize(other);
   const days={};
@@ -756,7 +799,8 @@ const AU={c:null,
 };
 // haptics: vibrate() on Android; on iPhone (iOS 18+) toggling a native switch gives a light tick
 const HAPTIC=(()=>{try{const l=document.createElement('label');l.setAttribute('aria-hidden','true');l.style.cssText='position:fixed;left:-200px;top:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none';const i=document.createElement('input');i.type='checkbox';i.setAttribute('switch','');i.tabIndex=-1;l.appendChild(i);document.body.appendChild(l);return l}catch(e){return null}})();
-const buzz=ms=>{try{if(navigator.vibrate&&!IS_IOS){navigator.vibrate(ms);return}if(HAPTIC)HAPTIC.click()}catch(e){}};
+const buzz=ms=>{try{if(navigator.userActivation&&!navigator.userActivation.hasBeenActive)return; // no tap yet (e.g. right after Strava): browsers refuse anyway
+  if(navigator.vibrate&&!IS_IOS){navigator.vibrate(ms);return}if(HAPTIC)HAPTIC.click()}catch(e){}};
 
 /* =========================================================
    LAYOUT & ROOM
@@ -1556,23 +1600,41 @@ const ACH=[
   {id:'scan1',ic:'📷',n:'Erster Scan',d:'Ein Produkt per Barcode eingetragen',goal:1,v:()=>S.cnt.scans||0},
   {id:'food7',ic:'🥗',n:'Ernährungstagebuch',d:'An 7 Tagen Essen eingetragen',goal:7,v:()=>Object.values(S.days).filter(x=>x&&x.food&&x.food.length).length},
   {id:'ideal7',ic:'🐕',n:'Topform',d:'7 Tage mit Idealfigur',goal:7,v:()=>Object.values(S.body.hist).filter(b=>b>=4&&b<=6.2).length},
+  {id:'burn5k',ic:'🔥',n:'Kalorienkiller',d:'5’000 kcal mit Sport verbrannt',goal:5000,v:()=>totalSportKcal()},
 ];
 function checkAch(){
   for(const a of ACH){if(S.ach[a.id])continue;if(a.v()>=a.goal){S.ach[a.id]=Date.now();const b=a.goal>=30?60:a.goal>=7?30:15;addBones(b);setTimeout(()=>toast(`${a.ic} Erfolg: ${a.n} · +${b} Knochen`),400);AU.coin()}}
 }
+function recalcGym(d){d.gym.sort((a,b)=>a.t-b.t);d.gymMin=d.gym.reduce((n,g)=>n+(Number(g.m)||0),0)}
+// adds trainings to a day (typed in or from Strava), same rewards either way
+function addSessions(k,list){
+  const d=day(k),wasMeal=d.meal,before=d.gymMin||0;
+  for(const e of list)d.gym.push(e);
+  recalcGym(d);
+  const added=Math.max(0,d.gymMin-before);let xp=0,bones=0,meal=false,week=false;
+  if(!d.meal&&d.gymMin>=30){d.meal=true;meal=true;xp=50+Math.min(30,d.gymMin-30);bones=10}
+  else xp=wasMeal?Math.min(15,Math.round(added/4)):Math.round(added/3);
+  const ref=parseKey(k),wk=weekKey(ref);if(weekGymDays(ref)>=S.settings.weekGoal&&!S.weeksHit[wk]){S.weeksHit[wk]=1;bones+=30;week=true}
+  if(k!==todayKey())reEvalFrom(k); // a past day changed: let Dori's figure catch up
+  return{d,meal,xp,bones,week,added};
+}
 function logGym(min,type){
-  AU.init();const d=day();const wasMeal=d.meal;
-  d.gym.push({m:min,type,t:Date.now()});d.gymMin+=min;
-  let xp=0,bones=0,meal=false;
-  if(!d.meal&&d.gymMin>=30){d.meal=true;meal=true;S.bowl.food=1;xp=50+Math.min(30,d.gymMin-30);bones=10}
-  else xp=wasMeal?Math.min(15,Math.round(min/4)):Math.round(min/3);
-  const wk=weekKey(new Date());if(weekGymDays()>=S.settings.weekGoal&&!S.weeksHit[wk]){S.weeksHit[wk]=1;bones+=30;setTimeout(()=>toast('🗓️ Wochenziel geschafft · +30 Knochen'),1200)}
+  AU.init();
+  const r=addSessions(todayKey(),[{m:min,type,t:Date.now()}]),d=r.d;
+  if(r.meal)S.bowl.food=1;
+  if(r.week)setTimeout(()=>toast('🗓️ Wochenziel geschafft · +30 Knochen'),1200);
   closeSheet();
-  addBones(bones);addXP(xp);
-  if(meal){toast('🍖 Training gespeichert! Doris Napf ist voll.');buzz(30);Act.eat(true);AU.coin()}
+  addBones(r.bones);addXP(r.xp);updateBodyTarget();
+  if(r.meal){toast('🍖 Training gespeichert! '+S.name+'s Napf ist voll.');buzz(30);Act.eat(true);AU.coin()}
   else if(d.meal){toast(`💪 +${min} Min gespeichert · Bonus-XP`);Act.happy('Wuff!')}
   else{toast(`💪 ${d.gymMin}/30 Min gespeichert · noch ${30-d.gymMin} bis zum Futter`);Act.happy()}
   afterChange(true);
+}
+function deleteGym(k,key){
+  const d=S.days[k];if(!d)return;const i=d.gym.findIndex(g=>gymKey(g)===key);if(i<0)return;
+  d.gym.splice(i,1);d.gymDel=[...(d.gymDel||[]),key].slice(-100);recalcGym(d);
+  if(k!==todayKey())reEvalFrom(k);
+  updateBodyTarget();afterChange(true);if(TAB==='gym')renderSheet();toast('Einheit gelöscht');
 }
 function logWeight(kg){
   AU.init();const d=day();const first=d.weight==null&&!d.water;
@@ -1679,43 +1741,72 @@ function foodTotals(d){
   t.q=qw?t.q/qw:0;return t;
 }
 function weightAt(k){let best=null,bk='';for(const dk in S.days){const w=S.days[dk].weight;if(w!=null&&dk<=k&&dk>bk){bk=dk;best=w}}return best}
-function baseBudget(k=todayKey()){if(S.food.budget)return S.food.budget;const w=weightAt(k);return w?clamp(Math.round(w*30/50)*50,1500,3800):2200}
-function dayBudget(k=todayKey()){const d=S.days[k]||{};const base=baseBudget(k),bonus=Math.min(600,Math.round((d.gymMin||0)*6/10)*10);return{base,bonus,total:base+bonus}}
+// Grundbedarf = what you burn on a normal day WITHOUT sport (rough rule: about 28 kcal per kg)
+function baseBudget(k=todayKey()){if(S.food.budget)return S.food.budget;const w=weightAt(k);return w?clamp(Math.round(w*28/50)*50,1400,3600):2000}
+// extra kcal a training burns per kg and hour, on top of resting (MET minus 1)
+const MET_NET={Kraft:4,Laufen:8.5,Velo:6,'E-Bike':3.5,Cardio:6,HIIT:7,CrossFit:7,Sport:6,Yoga:2,Pilates:2.5,Sonstiges:4,Training:4,
+  Schwimmen:6.5,Gehen:2.5,Wandern:5,Schneeschuh:6.5,Rudern:6,Ski:6,Langlauf:8,Rollski:7.5,Snowboard:4.5,Klettern:6.5,Tennis:6,Padel:6,Badminton:4.5,
+  Squash:9,Tischtennis:3,Fussball:7,Basketball:6,Volleyball:3,Crosstrainer:5,Stepper:7,Inline:6.5,Eislaufen:6,Kajak:4,Kanu:3,SUP:4,Surfen:3,
+  Kitesurfen:6,Windsurfen:4,Segeln:2,Golf:3.5,Tanzen:5,Skateboard:4,Rollstuhl:3.5,Handbike:5};
+// kcal of one training: what Strava measured, otherwise an estimate from type, minutes and your weight
+function sessionKcal(g,k){if(g&&Number(g.kcal)>0)return Math.round(g.kcal);const w=weightAt(k||todayKey())||75;return Math.round((MET_NET[g&&g.type]||4)*w*(Number(g&&g.m)||0)/60/5)*5}
+function sportKcal(k=todayKey()){const d=S.days[k];if(!d||!d.gym)return 0;return d.gym.reduce((n,g)=>n+sessionKcal(g,k),0)}
+function totalSportKcal(){let tot=0,w=null;for(const k of Object.keys(S.days).sort()){const d=S.days[k];if(!d)continue;if(d.weight!=null)w=d.weight;for(const g of d.gym||[])tot+=Number(g.kcal)>0?Number(g.kcal):(MET_NET[g.type]||4)*(w||75)*(Number(g.m)||0)/60}return Math.round(tot)}
+function dayBudget(k=todayKey()){const base=baseBudget(k),sport=sportKcal(k);return{base,sport,bonus:sport,total:base+sport}}
 
 /* ---------- figure: body condition 1 (sehr dünn) … 5 (ideal) … 9 (dick) ----------
-   Each finished day moves Dori: eating clearly above your budget or lots of
-   sugary/fatty food makes him rounder, eating far too little makes him thin,
-   a balanced day brings him back toward his ideal. Days without entries
-   change almost nothing. */
+   Energy balance: what you eat minus what you burn (Grundbedarf + Sport).
+   - Eat more than you burn: Dori gets rounder right away.
+   - Training: he gets slimmer right away (Strava sends the real kcal).
+   - Eating less than your Grundbedarf only counts at the end of the day, and only
+     when the day looks fully logged (at least half of the need). Forgetting to log
+     never starves him; sport alone brings him back to his ideal, never thinner.
+   About 1000 kcal over or under the need move him one step on the scale. */
+const KCAL_PER_BCS=1000;
+function kcalDay(k=todayKey()){
+  const t=foodTotals(S.days[k]),b=dayBudget(k);
+  return{k,t,eaten:t.kcal,base:b.base,sport:b.sport,need:b.total,bal:t.kcal-b.total,logged:t.n>0,complete:t.n>0&&t.kcal>=.5*b.total};
+}
 function dayEffect(k){
-  const d=S.days[k],t=foodTotals(d);if(!t.n)return null;
-  const b=dayBudget(k).total,r=t.kcal/b,e=clamp((r-1)/.35,-1,1),junk=clamp(-t.q,-1,1);
-  let delta=.6*e;if(junk>0)delta+=.25*junk*(r>.8?1:.5);
-  return{k,kcal:t.kcal,budget:b,r,e,junk,delta,bal:Math.abs(e)<.3,t};
+  const e=kcalDay(k);if(!e.logged&&!e.sport)return null;
+  const use=e.complete?e.bal:Math.max(e.bal,-e.sport);
+  return Object.assign(e,{use,delta:clamp(use/KCAL_PER_BCS,-1,1),floor:!e.complete,even:e.complete&&Math.abs(e.bal)<250});
 }
 function applyDay(bcs,eff){
   if(!eff)return clamp(bcs+(5-bcs)*.04,1,9);
-  let delta=clamp(eff.delta,-.7,.7);
-  if(eff.bal)delta+=(5-bcs)*.12;
-  if(eff.junk<0)delta+=(5-bcs)*.08*(-eff.junk);
-  return clamp(bcs+delta,1,9);
+  let b=bcs+eff.delta;
+  if(eff.floor&&eff.delta<0)b=Math.max(b,Math.min(bcs,4.6));
+  if(eff.even)b+=(5-b)*.1; // a balanced day pulls him gently back to his ideal
+  return clamp(b,1,9);
 }
 function evalBody(quiet){
   const last=keyAdd(todayKey(),-1);
-  if(!S.body.evalDay){S.body.evalDay=last;return null}
+  if(!S.body.evalDay){S.body.evalDay=last;S.body.hist[keyAdd(last,-1)]=r1(S.body.bcs);return null} // start point, so late data for yesterday still counts
   let k=S.body.evalDay,res=null,guard=0;
   while(k<last&&guard++<400){k=keyAdd(k,1);const eff=dayEffect(k),before=S.body.bcs;S.body.bcs=applyDay(before,eff);S.body.hist[k]=r1(S.body.bcs);if(eff)res={eff,before,after:S.body.bcs}}
   S.body.evalDay=last;
   const ks=Object.keys(S.body.hist).sort();if(ks.length>150)for(const x of ks.slice(0,ks.length-150))delete S.body.hist[x];
   if(res&&res.eff.k===last&&!quiet){
-    const dl=res.after-res.before,v=dl>.15?`${S.name} hat zugelegt`:dl<-.15?`${S.name} ist schlanker geworden`:`${S.name} hält seine Figur`;
-    setTimeout(()=>toast(`🍽️ Gestern ${fmtInt(res.eff.kcal)} / ${fmtInt(res.eff.budget)} kcal · ${v}`),1800);
+    const dl=res.after-res.before,v=dl>.15?`${S.name} hat zugelegt`:dl<-.15?`${S.name} ist schlanker geworden`:`${S.name} hält seine Figur`,e=res.eff;
+    const msg=e.logged?`🍽️ Gestern ${fmtInt(e.eaten)} kcal gegessen, ${fmtInt(e.need)} verbraucht · ${v}`:`🔥 Gestern ${fmtInt(e.sport)} kcal Sport · ${v}`;
+    setTimeout(()=>toast(msg),1800);
   }
   return res;
 }
-function todayBulge(){const eff=dayEffect(todayKey());return eff?Math.max(0,applyDay(S.body.bcs,eff)-S.body.bcs)*.8:0}
-function shownBcs(){return clamp(S.body.bcs+todayBulge(),1,9)}
-function updateBodyTarget(){BODY.target=clamp((shownBcs()-5)/4,-1,1)}
+// a finished day got new data (e.g. last night's run arrived from Strava): replay the figure from there
+function reEvalFrom(k){
+  if(!S.body.evalDay||k>S.body.evalDay)return false;
+  let prev=keyAdd(k,-1),b=S.body.hist[prev];
+  if(b==null){const ks=Object.keys(S.body.hist).filter(x=>x<k).sort();if(!ks.length)return false;prev=ks[ks.length-1];b=S.body.hist[prev]}
+  let d=keyAdd(prev,1),guard=0;
+  while(d<=S.body.evalDay&&guard++<400){b=applyDay(b,dayEffect(d));S.body.hist[d]=r1(b);d=keyAdd(d,1)}
+  S.body.bcs=b;return true;
+}
+// today, live: eating over your need and training show at once
+function liveShift(){const e=kcalDay();return clamp(Math.max(e.bal,-e.sport)/KCAL_PER_BCS,-1.5,2)}
+function shownBcs(){return clamp(S.body.bcs+liveShift(),1,9)}
+// a bit more sensitive around the ideal, so one meal or one workout already shows
+function updateBodyTarget(){const x=clamp((shownBcs()-5)/4,-1,1);BODY.target=x*(1.35-.35*Math.abs(x))}
 const figLabel=b=>b<2.5?'Sehr dünn':b<4?'Dünn':b<=6.2?'Ideal':b<7.5?'Mollig':'Dick';
 
 /* ---------- logging ---------- */
@@ -1741,8 +1832,8 @@ function deleteFood(id){
 }
 function foodReaction(){
   const list=FS.added;FS.added=[];if(!list.length||D.state==='sleep'||busyFeeding())return;
-  const q=list.reduce((a,e)=>a+(e.q||0),0)/list.length,eff=dayEffect(todayKey());
-  if(eff&&eff.r>1.05){interrupt([{t:'do',s:'sit',d:.6},{t:'do',s:'lie',d:4,start:()=>sayBubble('Uff, voll!')}]);return}
+  const q=list.reduce((a,e)=>a+(e.q||0),0)/list.length;
+  if(kcalDay().bal>100){interrupt([{t:'do',s:'sit',d:.6},{t:'do',s:'lie',d:4,start:()=>sayBubble('Uff, voll!')}]);return}
   if(q>=.4){Act.happy('Gesund!');setTimeout(()=>hearts(2),400);return}
   if(q<=-.4){interrupt([{t:'do',s:'look',d:2.6,start:()=>sayBubble('Hmm… Zucker?')}]);return}
   interrupt([{t:'do',s:'sniff',d:1.6},{t:'do',s:'happy',d:1,start:()=>sayBubble('Mjam!')}]);
@@ -1799,30 +1890,39 @@ const FICON={
   fork:'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v8M4.5 3v5.2a2.5 2.5 0 0 0 5 0V3M7 11.5V21M17.5 21V3c-2.2 1.3-3.6 4-3.6 7.2V14h3.6"/></svg>',
 };
 function figText(){
-  const n=S.name,b=shownBcs(),eff=dayEffect(todayKey()),late=new Date().getHours()>=19;
+  const n=S.name,b=shownBcs(),e=kcalDay(),late=new Date().getHours()>=18;
   let t=b<2.5?`${n} ist sehr dünn. Iss genug, damit er wieder zu Kräften kommt.`:b<4?`${n} ist schlank geworden. Etwas mehr Essen tut ihm gut.`:b<=6.2?`${n} ist in Topform.`:b<7.5?`${n} hat etwas zugelegt.`:`${n} ist ganz schön rund geworden.`;
-  if(eff){const proj=applyDay(S.body.bcs,eff)-S.body.bcs;
-    if(proj>.15)t+=' Bleibt es heute so, legt er weiter zu.';
-    else if(proj<-.15&&late)t+=' Bleibt es so, wird er schlanker.';
-    else if(Math.abs(proj)<=.15)t+=' Heute hält er seine Figur.';}
-  else t+=' Trag ein, was du isst, dann zeigt er dir, wie es dir bekommt.';
+  const night=e.logged&&late&&applyDay(S.body.bcs,dayEffect(e.k))<b-.12; // the dashed marker on the scale
+  if(e.bal>100)t+=' Heute isst du mehr, als du verbrauchst, darum legt er zu. Sport macht ihn wieder schlanker.';
+  else if(e.sport>0&&liveShift()<-.1)t+=` Dein Training heute verbrennt ${fmtInt(e.sport)} kcal und macht ihn schlanker.${night?' Isst du heute nichts mehr, wird er über Nacht noch etwas schlanker.':''}`;
+  else if(e.logged)t+=night?' Isst du heute nichts mehr, wird er über Nacht schlanker.':' Heute hält er seine Figur.';
+  else t+=stravaOn()?' Trag ein, was du isst. Dein Sport kommt von selbst aus Strava.':' Trag ein, was du isst und wie du trainierst. Beides sieht man an ihm.';
   return t;
 }
+const sgn=n=>n>0?'+'+fmtInt(n):n<0?'−'+fmtInt(-n):'0';
 function foodTopHTML(){
-  const k=todayKey(),t=foodTotals(day()),b=dayBudget(k),r=t.kcal/b.total,eff=dayEffect(k);
-  const bcs=shownBcs(),proj=eff?applyDay(S.body.bcs,eff):null;
-  const C=2*Math.PI*40,col=r>1.1?'#ff8a5c':r>=.8?'#7ed36a':'#f6a944';
+  const k=todayKey(),e=kcalDay(k),t=e.t,bcs=shownBcs(),eff=dayEffect(k),proj=eff?applyDay(S.body.bcs,eff):null,late=new Date().getHours()>=18;
+  const r=e.need?e.eaten/e.need:0,C=2*Math.PI*40,col=e.bal>100?'#ff8a5c':r>=.8?'#7ed36a':'#f6a944';
   const pk=t.p*4,ck=t.c*4,fk=t.f*9,mk=pk+ck+fk||1,[qc,ql]=qTag(t.q);
-  const rest=r<1?`Noch ${fmtInt(b.total-t.kcal)} kcal frei`:`${fmtInt(t.kcal-b.total)} kcal über dem Budget`;
+  const fromStrava=((S.days[k]&&S.days[k].gym)||[]).some(g=>g.sid);
+  const runMin=Math.max(5,Math.round(e.bal/(MET_NET.Laufen*(weightAt(k)||75)/60)/5)*5);
+  const rest=e.bal>0?`${fmtInt(e.bal)} kcal mehr als verbraucht<small>${esc(S.name)} legt zu. Etwa ${runMin} Min Laufen gleichen das aus.</small>`:`Noch ${fmtInt(-e.bal)} kcal, bis ${esc(S.name)} zulegt`;
+  const ghost=proj!=null&&e.logged&&late&&proj<bcs-.12; // where he'll be tomorrow if you eat nothing more
   return `<div class="card fig"><div class="fighead"><div><div class="lbl">${esc(S.name)}s Figur</div><b class="figlab">${figLabel(bcs)}</b></div><div class="figval">${fmt1(bcs)}<small>/ 9</small></div></div>
-    <div class="gauge" aria-label="Figur ${fmt1(bcs)} von 9">${proj!=null&&Math.abs(proj-bcs)>.12?`<i class="ghost" style="left:${(proj-1)/8*100}%"></i>`:''}<i style="left:${(bcs-1)/8*100}%"></i></div>
+    <div class="gauge" aria-label="Figur ${fmt1(bcs)} von 9">${ghost?`<i class="ghost" style="left:${(proj-1)/8*100}%"></i>`:''}<i style="left:${(bcs-1)/8*100}%"></i></div>
     <div class="gscale"><span>Dünn</span><span>Ideal</span><span>Mollig</span></div>
     <p class="note">${esc(figText())}</p></div>
-  <div class="card ftoday"><div class="kring"><svg viewBox="0 0 96 96"><circle cx="48" cy="48" r="40" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="8"/><circle cx="48" cy="48" r="40" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${C*Math.min(1,r)} ${C}"/></svg><div class="rc"><b>${fmtInt(t.kcal)}</b><small>/ ${fmtInt(b.total)} kcal</small></div></div>
-    <div class="kinfo"><div class="krest ${r>=1?'over':''}">${rest}${b.bonus?`<small>inkl. +${b.bonus} kcal fürs Training</small>`:''}</div>
+  <div class="card ftoday"><div class="frow"><div class="kring"><svg viewBox="0 0 96 96"><circle cx="48" cy="48" r="40" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="8"/><circle cx="48" cy="48" r="40" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round" stroke-dasharray="${C*Math.min(1,r)} ${C}"/></svg><div class="rc"><b>${fmtInt(e.eaten)}</b><small>/ ${fmtInt(e.need)} kcal</small></div></div>
+    <div class="ebal" aria-label="Energiebilanz heute">
+      <div class="eb"><span>Gegessen</span><b>${fmtInt(e.eaten)}</b></div>
+      <div class="eb"><span>Grundbedarf</span><b>−${fmtInt(e.base)}</b></div>
+      <div class="eb sp"><span>Sport${fromStrava?'<i class="svtag">Strava</i>':''}</span><b>${e.sport?'−'+fmtInt(e.sport):'0'}</b></div>
+      <div class="eb tot ${e.bal>100?'up':e.bal<-100?'down':''}"><span>Bilanz</span><b>${sgn(e.bal)} kcal</b></div>
+    </div></div>
+    <div class="krest ${e.bal>0?'over':''}">${rest}</div>
     ${t.n?`<div class="macro"><i class="mp" style="width:${pk/mk*100}%"></i><i class="mc" style="width:${ck/mk*100}%"></i><i class="mf" style="width:${fk/mk*100}%"></i></div>
     <div class="mleg"><span><i class="dot mp"></i>Eiweiss ${fmtInt(t.p)} g</span><span><i class="dot mc"></i>Kohlenh. ${fmtInt(t.c)} g</span><span><i class="dot mf"></i>Fett ${fmtInt(t.f)} g</span></div>
-    <div class="ksug">Zucker ${fmtInt(t.s)} g · <i class="qt ${qc}">${ql}</i></div>`:`<div class="ksug">Noch nichts eingetragen.</div>`}</div></div>`;
+    <div class="ksug">Zucker ${fmtInt(t.s)} g · <i class="qt ${qc}">${ql}</i></div>`:`<div class="ksug">Noch nichts eingetragen.</div>`}</div>`;
 }
 function badgeHTML(pr){if(pr.ns)return `<span class="ns ${pr.ns}" title="Nutri-Score ${pr.ns.toUpperCase()}">${pr.ns.toUpperCase()}</span>`;const [c,l]=qTag(qualityOf(pr));return `<i class="qt ${c}">${l}</i>`}
 function foodPanelHTML(){
@@ -1875,8 +1975,8 @@ function foodListHTML(){
   return `<div class="card list flist">${d.food.slice().reverse().map(e=>{const t=new Date(e.t);return `<div class="row"><div class="rm">${esc(e.name)}<small>${pad(t.getHours())}:${pad(t.getMinutes())} · ${e.amt} ${e.unit||'g'}</small></div><div class="rv">${fmtInt(e.kcal)} kcal</div><button class="del" data-fdel="${esc(e.id)}" aria-label="Eintrag löschen">${ICON.trash}</button></div>`}).join('')}</div>`;
 }
 function foodBudgetHTML(){
-  const b=dayBudget(),w=weightAt(todayKey());
-  return `<div class="card fbud"><div class="bl"><b>Tagesbudget ${fmtInt(b.base)} kcal</b><small>${S.food.budget?'Von dir festgelegt.':w?'Geschätzt aus deinem Gewicht (rund 30 kcal pro kg).':'Standardwert. Mit deinem Gewicht wird er genauer.'}${b.bonus?` Heute +${b.bonus} kcal fürs Training.`:''}</small></div><div class="bstep"><button data-fbud="-50" aria-label="50 kcal weniger">−</button><button data-fbud="50" aria-label="50 kcal mehr">+</button></div></div>
+  const base=baseBudget(),w=weightAt(todayKey());
+  return `<div class="card fbud"><div class="bl"><b>Grundbedarf ${fmtInt(base)} kcal</b><small>${S.food.budget?'Von dir festgelegt.':w?'Geschätzt aus deinem Gewicht, rund 28 kcal pro kg.':'Standardwert. Mit deinem Gewicht wird er genauer.'} Das ist dein Tag ohne Sport. Training kommt jeden Tag dazu.</small></div><div class="bstep"><button data-fbud="-50" aria-label="50 kcal weniger">−</button><button data-fbud="50" aria-label="50 kcal mehr">+</button></div></div>
   ${S.food.budget?'<button class="flink" id="fBudAuto">Wieder automatisch schätzen</button>':''}`;
 }
 function renderFood(){
@@ -1971,6 +2071,243 @@ $('#scanTorch').addEventListener('click',()=>{if(!Scan.stream)return;Scan.torch=
 document.addEventListener('error',e=>{const t=e.target;if(t&&t.tagName==='IMG'&&t.closest&&t.closest('.prod'))t.replaceWith(Object.assign(document.createElement('span'),{className:'pico',textContent:'🍽️'}))},true);
 let pendingReload=false;
 window.DORI_SAFE_RELOAD=()=>{try{save(true)}catch(e){}const a=document.activeElement;if(Scan.on||(a&&/INPUT|TEXTAREA/.test(a.tagName))||(TAB==='food'&&FS.mode!=='search')){pendingReload=true}else location.reload()};
+const inputFocused=()=>{const a=document.activeElement;return !!(a&&/INPUT|TEXTAREA/.test(a.tagName))};
+
+/* =========================================================
+   STRAVA — trainings and burned calories come in by themselves
+   Everyone connects their own Strava API app (single player). Client-ID,
+   Client Secret and tokens stay on this device: own storage key, never in
+   backups, never in the cloud.
+   ========================================================= */
+const STRAVA_KEY='dori.strava.v1',SV_WEB='https://www.strava.com',SV_API='https://www.strava.com/api/v3',SV_SCOPE='read,activity:read_all';
+let ST={};
+try{const o=JSON.parse(localStorage.getItem(STRAVA_KEY)||'null');if(o&&typeof o==='object')ST=o}catch(e){}
+function saveST(){const j=JSON.stringify(ST);try{localStorage.setItem(STRAVA_KEY,j)}catch(e){}IDB.set('strava',j).catch(()=>{})}
+async function loadSTBackup(){ // localStorage was cleared but the IndexedDB copy survived
+  if(IN_CLAUDE||ST.cid)return;
+  try{const raw=await withTimeout(IDB.get('strava'),1000);if(raw){const o=JSON.parse(raw);if(o&&typeof o==='object'&&o.cid){ST=o;try{localStorage.setItem(STRAVA_KEY,raw)}catch(e){}}}}catch(e){}
+}
+const stravaOn=()=>!IN_CLAUDE&&!!(ST.cid&&ST.sec&&ST.ref);
+const stravaRedirect=()=>location.origin+location.pathname;
+const SY={busy:false,p:null};
+const svErr=(kind,status)=>Object.assign(new Error(kind),{kind,status});
+const SV_TYPES={Run:'Laufen',TrailRun:'Laufen',VirtualRun:'Laufen',Ride:'Velo',VirtualRide:'Velo',MountainBikeRide:'Velo',GravelRide:'Velo',Velomobile:'Velo',
+  EBikeRide:'E-Bike',EMountainBikeRide:'E-Bike',Handcycle:'Handbike',Wheelchair:'Rollstuhl',Swim:'Schwimmen',Walk:'Gehen',Hike:'Wandern',Snowshoe:'Schneeschuh',
+  WeightTraining:'Kraft',Workout:'Training',HighIntensityIntervalTraining:'HIIT',Crossfit:'CrossFit',Yoga:'Yoga',Pilates:'Pilates',Rowing:'Rudern',VirtualRow:'Rudern',
+  AlpineSki:'Ski',BackcountrySki:'Ski',NordicSki:'Langlauf',RollerSki:'Rollski',Snowboard:'Snowboard',RockClimbing:'Klettern',Tennis:'Tennis',Padel:'Padel',
+  Pickleball:'Tennis',Badminton:'Badminton',Squash:'Squash',Racquetball:'Squash',TableTennis:'Tischtennis',Soccer:'Fussball',Basketball:'Basketball',
+  Volleyball:'Volleyball',Elliptical:'Crosstrainer',StairStepper:'Stepper',InlineSkate:'Inline',IceSkate:'Eislaufen',Kayaking:'Kajak',Canoeing:'Kanu',
+  StandUpPaddling:'SUP',Surfing:'Surfen',Kitesurf:'Kitesurfen',Windsurf:'Windsurfen',Sail:'Segeln',Golf:'Golf',Skateboard:'Skateboard',Dance:'Tanzen'};
+const svErrText=k=>({net:'Strava ist gerade nicht erreichbar.',rate:'Strava-Limit erreicht. In 15 Minuten geht es weiter.',auth:'Die Strava-Verbindung ist abgelaufen. Bitte neu verbinden.',
+  scope:'DORI darf deine Aktivitäten nicht sehen. Bitte neu verbinden und den Zugriff erlauben.',http:'Strava hat einen Fehler gemeldet. Versuch es später nochmal.'})[k]||'';
+function svStatus(){if(SY.busy)return 'Wird synchronisiert …';if(ST.err)return svErrText(ST.err);return ST.last?'Zuletzt synchronisiert: '+fmtWhen(ST.last):'Noch nicht synchronisiert'}
+function svUI(){const t=svStatus();document.querySelectorAll('[data-svstate]').forEach(el=>{el.textContent=t});document.querySelectorAll('[data-svbusy]').forEach(b=>{b.disabled=SY.busy})}
+
+// token exchange and refresh: a plain form POST (no custom headers)
+async function svToken(params){
+  let r,j=null;
+  try{r=await fetch(SV_WEB+'/oauth/token',{method:'POST',body:new URLSearchParams(Object.assign({client_id:ST.cid,client_secret:ST.sec},params)),credentials:'omit',cache:'no-store'})}
+  catch(e){throw svErr('net')}
+  try{j=await r.json()}catch(e){}
+  if(!r.ok||!j||!j.access_token)throw svErr(r.status===429?'rate':r.status>=400&&r.status<500?'auth':'http',r.status);
+  ST.acc=String(j.access_token);if(j.refresh_token)ST.ref=String(j.refresh_token);
+  ST.exp=Number(j.expires_at)||Math.floor(Date.now()/1000)+(Number(j.expires_in)||21600);
+  if(j.athlete&&typeof j.athlete==='object')ST.ath={id:j.athlete.id,name:String(j.athlete.firstname||'').slice(0,40)};
+  saveST();return j;
+}
+async function svAccess(force){
+  if(!ST.ref)throw svErr('auth');
+  if(!force&&ST.acc&&(Number(ST.exp)||0)*1000>Date.now()+120e3)return ST.acc; // access tokens live 6 h
+  await svToken({grant_type:'refresh_token',refresh_token:ST.ref});
+  return ST.acc;
+}
+async function svGet(path,again){
+  const tok=await svAccess(again);let r;
+  try{r=await fetch(SV_API+path,{headers:{Authorization:'Bearer '+tok},credentials:'omit',cache:'no-store'})}
+  catch(e){ // the header can trip the browser's cross-site check: try once with the token in the address
+    try{r=await fetch(SV_API+path+(path.includes('?')?'&':'?')+'access_token='+encodeURIComponent(tok),{credentials:'omit',cache:'no-store'})}catch(e2){throw svErr('net')}
+  }
+  if(r.status===401){let m='';try{m=JSON.stringify(await r.json())}catch(e){}
+    if(/activity:read/.test(m))throw svErr('scope',401);
+    if(!again)return svGet(path,true);
+    throw svErr('auth',401)}
+  if(r.status===429)throw svErr('rate',429);
+  if(!r.ok)throw svErr('http',r.status);
+  return r.json();
+}
+
+function stravaConnect(force){
+  if(!svCreds()){toast('Trag zuerst Client-ID und Client Secret von Strava ein.');const el=$(/^\d+$/.test(ST.cid||'')?'#svSec':'#svCid');if(el)el.focus();return}
+  if(!navigator.onLine){toast('Du bist offline. Verbinde dich zuerst mit dem Internet.');return}
+  ST.state=Math.random().toString(36).slice(2,10)+Date.now().toString(36);ST.err='';saveST();save(true);
+  location.href=SV_WEB+'/oauth/authorize?client_id='+encodeURIComponent(ST.cid)+'&response_type=code&redirect_uri='+encodeURIComponent(stravaRedirect())+
+    '&approval_prompt='+(force?'force':'auto')+'&scope='+SV_SCOPE+'&state='+ST.state;
+}
+// read Client-ID and Secret from the settings fields (kept on every keystroke, so switching apps loses nothing)
+function svCreds(){
+  const c=$('#svCid'),s=$('#svSec');if(c)ST.cid=c.value.replace(/\D/g,'');if(s)ST.sec=s.value.replace(/\s/g,'');if(c||s)saveST();
+  return /^\d{1,12}$/.test(ST.cid||'')&&/^[A-Za-z0-9]{20,80}$/.test(ST.sec||'');
+}
+async function stravaFinish(code,scope){
+  if(scope&&!/activity:read/.test(scope)){ST.err='scope';saveST();svScopeModal();return false}
+  try{await svToken({code,grant_type:'authorization_code'})}
+  catch(e){ST.state='';saveST();svFailModal(e);return false}
+  ST.state='';ST.err='';ST.from=Date.now()-7*864e5;ST.since=ST.since||Date.now();saveST();
+  toast('✓ Mit Strava verbunden'+(ST.ath&&ST.ath.name?', '+ST.ath.name:''));buzz(20);
+  if(TAB==='settings'&&!inputFocused())renderSheet();
+  setTimeout(()=>stravaSync(true),700);
+  return true;
+}
+// Strava sends the browser back here with ?code=…&scope=…&state=… (or ?error=access_denied)
+function stravaCallback(){
+  if(IN_CLAUDE)return false;
+  let q;try{q=new URLSearchParams(location.search)}catch(e){return false}
+  const code=q.get('code'),err=q.get('error'),scope=q.get('scope')||'',state=q.get('state')||'';
+  if(!((code&&(scope||state))||(err&&state)))return false;
+  try{history.replaceState(null,'',location.pathname+location.hash)}catch(e){}
+  if(err){ST.state='';saveST();setTimeout(()=>toast('Strava-Verbindung abgebrochen'),700);return true}
+  // landed in a browser that doesn't know the Strava details (e.g. Safari instead of the app)
+  if(!(ST.cid&&ST.sec)){setTimeout(()=>svCodeModal(code),700);return true}
+  setTimeout(()=>stravaFinish(code,scope),300);
+  return true;
+}
+function stravaUseCode(){
+  const raw=String(($('#svCode')||{}).value||'').trim();let code=raw,scope='';
+  try{if(/^https?:/i.test(raw)){const u=new URL(raw);code=u.searchParams.get('code')||'';scope=u.searchParams.get('scope')||''}}catch(e){}
+  if(!/^[A-Za-z0-9]{10,100}$/.test(code)){toast('Das sieht nicht nach einem Strava-Code aus.');return}
+  if(!svCreds()){toast('Trag zuerst Client-ID und Client Secret ein.');return}
+  const i=$('#svCode');if(i)i.blur();
+  stravaFinish(code,scope);
+}
+async function stravaDisconnect(){
+  const tok=ST.acc,ref=ST.ref,cid=ST.cid,sec=ST.sec;
+  Object.assign(ST,{acc:'',ref:'',exp:0,ath:null,err:'',state:''});saveST();
+  if(TAB==='settings')renderSheet();toast('Strava getrennt');
+  // tell Strava too, so DORI also disappears from your Strava settings (best effort)
+  try{const r=await fetch(SV_WEB+'/oauth/revoke',{method:'POST',headers:{Authorization:'Basic '+btoa(cid+':'+sec)},body:new URLSearchParams({token:ref||tok}),credentials:'omit'});if(r.ok)return}catch(e){}
+  try{if(tok)await fetch(SV_WEB+'/oauth/deauthorize?access_token='+encodeURIComponent(tok),{method:'POST',credentials:'omit'})}catch(e){}
+}
+function stravaForget(){ST={};saveST();if(TAB==='settings')renderSheet();toast('Strava-Zugangsdaten gelöscht')}
+
+// pairs a Strava workout with the same one you typed in by hand (usually logged right after it)
+function svTwin(d,start,end,min){
+  let best=null,bd=Infinity;
+  for(const g of d.gym){if(g.sid)continue;const dt=Math.min(Math.abs(g.t-end),Math.abs(g.t-start));
+    if(dt<=3*3600e3&&Math.abs(g.m-min)<=Math.max(15,min*.4)&&dt<bd){bd=dt;best=g}}
+  return best;
+}
+function svKnown(){const s=new Set();for(const k in S.days){const d=S.days[k];if(!d)continue;for(const g of d.gym||[])if(g&&g.sid)s.add(String(g.sid));for(const x of d.gymDel||[])if(String(x)[0]==='s')s.add(String(x).slice(1))}return s}
+const svKcal=a=>{const c=Number(a&&a.calories);if(c>0)return Math.round(c);const kj=Number(a&&a.kilojoules);return kj>0?Math.round(kj):0}; // bike kJ ≈ kcal burned
+
+async function stravaSync(manual){
+  if(!stravaOn())return null;
+  if(SY.busy)return SY.p;
+  if(!navigator.onLine){if(manual)toast('Du bist offline. Strava holt alles nach, sobald du online bist.');return null}
+  SY.busy=true;svUI();
+  SY.p=(async()=>{
+    const now=Date.now(),k0=todayKey(),known=svKnown(),shown0=shownBcs();
+    const from=clamp(Number(ST.from)||now-7*864e5,now-30*864e5,now);
+    let added=0,kcal=0,partial=false;const today=[],res={meal:false,xp:0,bones:0,week:false};
+    try{
+      const list=[];
+      for(let page=1;page<=4;page++){const part=await svGet(`/athlete/activities?after=${Math.floor(from/1000)}&per_page=50&page=${page}`);if(!Array.isArray(part))break;list.push(...part);if(part.length<50)break}
+      const fresh=list.filter(a=>a&&a.id!=null&&!known.has(String(a.id))&&(Number(a.moving_time)||Number(a.elapsed_time)||0)>=180&&/^\d{4}-\d{2}-\d{2}/.test(String(a.start_date_local||'')))
+        .sort((a,b)=>(Date.parse(a.start_date)||0)-(Date.parse(b.start_date)||0));
+      const byDay={};let details=0;
+      for(const a of fresh){
+        let kc=svKcal(a);
+        if(!(Number(a.calories)>0)){ // the calories only come with the detailed activity
+          const stop=()=>{partial=true;ST.from=(Date.parse(a.start_date)||now)-60e3};
+          if(details>=25){stop();break}
+          try{const full=await svGet('/activities/'+encodeURIComponent(a.id));details++;kc=svKcal(full)||kc}
+          catch(e){if(e.kind==='auth'||e.kind==='scope')throw e;stop();break}
+        }
+        const k=String(a.start_date_local).slice(0,10),start=Date.parse(a.start_date)||now;
+        const min=Math.max(1,Math.round((Number(a.moving_time)||Number(a.elapsed_time))/60)),end=start+(Number(a.elapsed_time)||min*60)*1000;
+        const e={m:min,type:SV_TYPES[a.sport_type]||SV_TYPES[a.type]||'Training',t:start,src:'strava',sid:String(a.id)};if(kc>0)e.kcal=kc;
+        const d=day(k),tw=svTwin(d,start,end,min),arr=byDay[k]||(byDay[k]=[]);
+        if(tw){e.tw=tw.t;d.gym[d.gym.indexOf(tw)]=e;recalcGym(d)}else arr.push(e); // typed-in twin: replace, no double rewards
+        added++;kcal+=sessionKcal(e,k);if(k===k0)today.push(e);
+      }
+      for(const k of Object.keys(byDay).sort()){const r=addSessions(k,byDay[k]);if(r.meal&&k===k0)res.meal=true;res.xp+=r.xp;res.bones+=r.bones;if(r.week)res.week=true}
+      if(!partial)ST.from=now-2*864e5; // look 2 days back next time: late uploads still arrive
+      ST.last=Date.now();ST.err='';ST.n=(Number(ST.n)||0)+added;saveST();
+    }catch(e){
+      ST.err=e&&e.kind||'http';if(ST.err==='auth'||ST.err==='scope'){ST.acc='';ST.ref='';ST.exp=0}
+      saveST();if(added)save();
+      if(manual||ST.err==='auth'||ST.err==='scope')toast('⚠️ '+svErrText(ST.err));
+      if(TAB==='settings'&&!inputFocused())renderSheet();
+      return{error:ST.err};
+    }finally{SY.busy=false;svUI()}
+    if(added){
+      if(res.meal)S.bowl.food=1;
+      addBones(res.bones);addXP(res.xp);updateBodyTarget();afterChange(true);
+      const tk=today.reduce((n,e)=>n+sessionKcal(e,k0),0);
+      toast(added===1&&today.length===1?`🔥 Strava: ${today[0].type} ${today[0].m} Min · ${fmtInt(tk)} kcal`:`🔥 Strava: ${added} ${added===1?'Aktivität':'Aktivitäten'} übernommen · ${fmtInt(kcal)} kcal`);
+      if(res.week)setTimeout(()=>toast('🗓️ Wochenziel geschafft · +30 Knochen'),2600);
+      if(res.meal)setTimeout(()=>{toast('🍖 Training von Strava · '+S.name+'s Napf ist voll!');buzz(30);Act.eat(true);AU.coin()},1200);
+      else if(today.length&&shownBcs()<shown0-.05&&D.state!=='sleep'&&!busyFeeding())setTimeout(()=>{Act.happy('Leichter!');floatText('−'+fmtInt(tk)+' kcal','#ff9a62')},900);
+      if(TAB!=='home'&&!inputFocused())renderSheet();
+    }else if(manual)toast('Strava: nichts Neues');
+    return{added,kcal};
+  })();
+  return SY.p;
+}
+
+/* ---------- Strava UI ---------- */
+const SVICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12.5h4.2l2.4-6 4.4 12 2.4-6H21"/></svg>';
+function stravaCardHTML(){
+  if(IN_CLAUDE)return '';
+  if(stravaOn())return `<div class="card strava" id="svCard"><div class="svh"><span class="svlogo">${SVICON}</span><div class="stx"><b>Verbunden${ST.ath&&ST.ath.name?' als '+esc(ST.ath.name):''}</b><small data-svstate>${esc(svStatus())}</small></div>${ST.err?'':'<span class="sst">✓</span>'}</div>
+    <p class="note">Neue Aktivitäten kommen von selbst, wenn du DORI öffnest. Die Dauer zählt fürs Futter, die Kalorien für ${esc(S.name)}s Figur.${ST.n?` Bisher ${fmtInt(ST.n)} übernommen.`:''}</p>
+    <div class="btnrow"><button class="cta svbtn" id="svSync" data-svbusy ${SY.busy?'disabled':''}>Jetzt abrufen</button><button class="cta ghost" id="svOff">Trennen</button></div></div>`;
+  const site=stravaRedirect(),host=location.host,warn=ST.err==='auth'||ST.err==='scope'?`<p class="svwarn">${esc(svErrText(ST.err))}</p>`:'';
+  return `<div class="card strava" id="svCard"><div class="svh"><span class="svlogo">${SVICON}</span><div class="stx"><b>Mit Strava verbinden</b><small>Trainings und verbrannte Kalorien kommen dann von selbst zu ${esc(S.name)}.</small></div></div>${warn}
+    <ol class="svsteps"><li><span class="n">1</span><span>Öffne <a href="https://www.strava.com/settings/api" target="_blank" rel="noopener">strava.com/settings/api</a> und melde dich an.</span></li>
+    <li><span class="n">2</span><span>Leg dort eine App an. Name: <b>DORI</b>. Bei <b>Website</b> und bei <b>Authorization Callback Domain</b> trägst du ein:</span></li></ol>
+    <div class="copyrow"><code>${esc(site)}</code><button data-copy="${esc(site)}">Kopieren</button></div>
+    <div class="copyrow"><code>${esc(host)}</code><button data-copy="${esc(host)}">Kopieren</button></div>
+    <ol class="svsteps"><li><span class="n">3</span><span>Strava will ein App-Symbol: <button class="flink inl" id="svIcon">DORI-Symbol sichern</button></span></li>
+    <li><span class="n">4</span><span>Kopier <b>Client-ID</b> und <b>Client Secret</b> von Strava hierher:</span></li></ol>
+    <div class="form"><label class="lbl" for="svCid">Client-ID</label><input class="inp" id="svCid" inputmode="numeric" autocomplete="off" value="${esc(ST.cid||'')}" placeholder="z. B. 123456"></div>
+    <div class="form"><label class="lbl" for="svSec">Client Secret</label><input class="inp mono" id="svSec" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" value="${esc(ST.sec||'')}" placeholder="40 Zeichen"></div>
+    <button class="cta svbtn" id="svGo">Mit Strava verbinden</button>
+    <button class="flink" id="svCodeT">Ich habe schon einen Code von Strava</button>
+    <div class="form" id="svCodeBox" hidden><input class="inp mono" id="svCode" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="Code oder ganzen Link einfügen"><button class="cta ghost" id="svCodeGo">Code verwenden</button></div>
+    <p class="note">Für eigene API-Apps verlangt Strava seit Juni 2026 ein Strava-Abo. Client Secret und Zugang bleiben nur auf diesem ${DEVICE} und kommen nicht ins Backup.${ST.cid||ST.sec?' <button class="flink inl" id="svForget">Zugangsdaten löschen</button>':''}</p></div>`;
+}
+function stravaLineHTML(){
+  if(IN_CLAUDE)return '';
+  if(stravaOn())return `<div class="card svline"><span class="svlogo">${SVICON}</span><span class="stx"><b>Strava${ST.ath&&ST.ath.name?' · '+esc(ST.ath.name):''}</b><small data-svstate>${esc(svStatus())}</small></span><button class="svmini" id="svSync" data-svbusy ${SY.busy?'disabled':''}>Abrufen</button></div>`;
+  return `<button class="card svline" id="svSetup"><span class="svlogo">${SVICON}</span><span class="stx"><b>${ST.err==='auth'||ST.err==='scope'?'Strava neu verbinden':'Mit Strava verbinden'}</b><small>Trainings und Kalorien kommen dann von selbst</small></span><span class="chev">›</span></button>`;
+}
+function openStravaSettings(){openTab('settings');setTimeout(()=>{const el=$('#svCard');if(el&&el.scrollIntoView)el.scrollIntoView({block:'start',behavior:'smooth'})},80)}
+function svCodeModal(code){
+  modal(`<div class="lbl">Strava</div><h3>Fast geschafft</h3><p>Strava hat DORI freigegeben. Diese Seite kennt deine Strava-Zugangsdaten aber nicht. Kopiere den Code und füge ihn gleich in der DORI-App unter <b>Einstellungen → Strava</b> ein. Er gilt nur kurz.</p>
+    <div class="copyrow"><code>${esc(code)}</code></div><button class="cta svbtn" id="mCopy">Code kopieren</button><button class="cta ghost" id="mOk">Schliessen</button>`,
+    m=>{m.querySelector('#mCopy').onclick=()=>copyText(code,'Code kopiert. Jetzt in der DORI-App einfügen.');m.querySelector('#mOk').onclick=closeModal});
+}
+function svFailModal(e){
+  const k=e&&e.kind;
+  const p=k==='net'?(navigator.onLine?'DORI hat Strava nicht erreicht. Versuch es gleich nochmal. Klappt es weiterhin nicht, lässt Strava die Anmeldung aus dem Browser gerade nicht zu.':'Du bist offline. Verbinde dich mit dem Internet und versuch es nochmal.')
+    :k==='auth'?'Strava hat die Anmeldung abgelehnt. Prüfe Client-ID und Client Secret und versuch es nochmal.':'Strava hat einen Fehler gemeldet. Versuch es später nochmal.';
+  modal(`<div class="lbl">Strava</div><h3>Das hat nicht geklappt</h3><p>${p}</p><button class="cta" id="mOk">Zu den Einstellungen</button>`,m=>m.querySelector('#mOk').onclick=()=>{closeModal();openStravaSettings()});
+}
+function svScopeModal(){
+  modal(`<div class="lbl">Strava</div><h3>Zugriff fehlt</h3><p>Damit ${esc(S.name)} deine Trainings sieht, braucht DORI Zugriff auf deine Aktivitäten. Verbinde nochmal und lass die Häkchen bei den Aktivitäten gesetzt.</p><button class="cta svbtn" id="mGo">Nochmal verbinden</button><button class="cta ghost" id="mOk">Später</button>`,
+    m=>{m.querySelector('#mGo').onclick=()=>{closeModal();stravaConnect(true)};m.querySelector('#mOk').onclick=closeModal});
+}
+async function copyText(t,msg){
+  try{await navigator.clipboard.writeText(t);toast(msg||'Kopiert');return}catch(e){}
+  try{const ta=document.createElement('textarea');ta.value=t;ta.setAttribute('readonly','');ta.style.cssText='position:fixed;top:0;left:0;opacity:0';document.body.appendChild(ta);ta.select();ta.setSelectionRange(0,t.length);const ok=document.execCommand('copy');ta.remove();toast(ok?(msg||'Kopiert'):'Kopieren ging nicht. Halte den Text gedrückt.')}
+  catch(e){toast('Kopieren ging nicht. Halte den Text gedrückt.')}
+}
+async function saveIcon(){
+  try{const r=await fetch('icon-512.png');if(!r.ok)throw 0;const b=await r.blob(),f=new File([b],'DORI-Symbol.png',{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f],title:'DORI-Symbol'});return}
+    const u=URL.createObjectURL(b),a=document.createElement('a');a.href=u;a.download='DORI-Symbol.png';document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(u);a.remove()},3000);toast('DORI-Symbol gesichert')}
+  catch(e){if(e&&e.name==='AbortError')return;window.open('icon-512.png','_blank')}
+}
 
 let avatarF=0;
 
@@ -2007,17 +2344,17 @@ function refreshHUD(force){
   $('#streakN').textContent=sk.n;$('#streakL').textContent=sk.n===1?'Tag':'Tage';
   $('#bonesN').textContent=S.bones;
   [['#stJoy',st.joy],['#stFood',st.full],['#stWater',st.hyd],['#stEnergy',st.energy]].forEach(([id,v])=>{const el=$(id);el.querySelector('.bar i').style.width=clamp(v,0,100)+'%';el.classList.toggle('low',v<30)});
-  const d=day(),ft=foodTotals(d),fb=dayBudget().total,fr=ft.kcal/fb;
+  const d=day(),ke=kcalDay(),fr=ke.need?ke.eaten/ke.need:0;
   updateBodyTarget();
   if(Math.abs(BODY.f-avatarF)>.08){avatarF=BODY.f;drawAvatar()}
-  const sig=[d.gymMin,d.meal,d.weight,S.settings.weekGoal,S.name,ft.kcal,fb].join('|');
+  const sig=[d.gymMin,d.meal,d.weight,S.settings.weekGoal,S.name,ke.eaten,ke.need].join('|');
   if(force||sig!==lastSig){lastSig=sig;
     const gg=$('#goalGym');gg.classList.toggle('done',d.meal);
     gg.innerHTML=`<span class="gi" style="color:var(--amber)">${ring(d.gymMin/30,'#f6a944')}${ICON.dumbbell}</span><span class="gt"><b>Training</b><small>${d.meal?'✓ Futter':d.gymMin+' / 30 Min'}</small></span>`;
     const gw=$('#goalW');gw.classList.toggle('done',d.weight!=null);
     gw.innerHTML=`<span class="gi" style="color:var(--water)">${ring(d.weight!=null?1:0,'#4fb4ff')}${ICON.drop}</span><span class="gt"><b>Gewicht</b><small>${d.weight!=null?'✓ '+fmtKg(d.weight)+' kg':'offen'}</small></span>`;
-    const gf=$('#goalFood');gf.classList.toggle('over',fr>1.1);
-    gf.innerHTML=`<span class="gi" style="color:#9fe58c">${ring(Math.min(1,fr),fr>1.1?'#ff8a5c':'#7ed36a')}${FICON.fork}</span><span class="gt"><b>Essen</b><small>${fmtInt(ft.kcal)} kcal</small></span>`;
+    const over=ke.bal>100,gf=$('#goalFood');gf.classList.toggle('over',over);
+    gf.innerHTML=`<span class="gi" style="color:#9fe58c">${ring(Math.min(1,fr),over?'#ff8a5c':'#7ed36a')}${FICON.fork}</span><span class="gt"><b>Essen</b><small>${fmtInt(ke.eaten)} kcal</small></span>`;
   }
   $('#sleepLbl').textContent=(D.state==='sleep'||D.inBed)?'Wecken':'Schlafen';
   updateCaption();
@@ -2065,8 +2402,8 @@ let introOpen=false;
 function intro(){
   introOpen=true;
   modal(`<div class="lbl">Willkommen</div><h3>Das ist ${S.name}</h3><p>Dein Dobermann lebt von deiner Fitness. Er stirbt nie, aber er freut sich sehr über Routine.</p>
-  <div class="rules"><div class="rule"><em>🏋️</em><span><b>30+ Min Training</b> am Tag füllt seinen Futternapf.</span></div><div class="rule"><em>⚖️</em><span><b>Morgengewicht</b> eintragen füllt seinen Wassernapf.</span></div><div class="rule"><em>🍽️</em><span><b>Was du isst</b>, sieht man an ${esc(S.name)}: zu viel macht ihn rund, zu wenig dünn.</span></div><div class="rule"><em>🔥</em><span>Beide Ziele an Folgetagen bauen deinen <b>Streak</b> auf. Ein Ruhetag pro Woche ist frei.</span></div></div>
-  <button class="cta" id="mOk">Los geht's</button>`,m=>m.querySelector('#mOk').onclick=()=>{introOpen=false;S.intro=true;S.seenFood=true;commit();closeModal();AU.init();buzz(15);Act.happy('Wuff!');if(canInstall()&&!S.installSeen)setTimeout(installPrompt,1600)});
+  <div class="rules"><div class="rule"><em>🏋️</em><span><b>30+ Min Training</b> am Tag füllt seinen Futternapf.</span></div><div class="rule"><em>⚖️</em><span><b>Morgengewicht</b> eintragen füllt seinen Wassernapf.</span></div><div class="rule"><em>🍽️</em><span><b>Was du isst</b>, sieht man an ${esc(S.name)}: mehr gegessen als verbraucht macht ihn rund, Sport macht ihn wieder schlank.</span></div><div class="rule"><em>🔥</em><span>Beide Ziele an Folgetagen bauen deinen <b>Streak</b> auf. Ein Ruhetag pro Woche ist frei.</span></div></div>
+  <button class="cta" id="mOk">Los geht's</button>`,m=>m.querySelector('#mOk').onclick=()=>{introOpen=false;S.intro=true;S.seenFood=true;S.seenEnergy=true;commit();closeModal();AU.init();buzz(15);Act.happy('Wuff!');if(canInstall()&&!S.installSeen)setTimeout(installPrompt,1600)});
 }
 
 /* =========================================================
@@ -2083,24 +2420,27 @@ function closeSheet(){const wasFood=TAB==='food';if(Scan.on)closeScanner();$('#s
   if(wasFood){FS.mode='search';FS.sel=null;FS.q='';FS.prefill=null;foodReaction()}
   if(pendingReload)location.reload()}
 function renderSheet(){const f={food:renderFood,gym:renderGym,weight:renderWeight,ach:renderAch,shop:renderShop,settings:renderSettings}[TAB];if(f)$('#sheetBody').innerHTML=f()}
-const G={min:45,type:'Kraft'};const TYPES=['Kraft','Cardio','HIIT','Sport','Yoga','Sonstiges'];
+const G={min:45,type:'Kraft'};const TYPES=['Kraft','Laufen','Velo','Cardio','HIIT','Sport','Yoga','Sonstiges'];
 function renderGym(){
   const d=day(),p=clamp(d.gymMin/30,0,1),C=2*Math.PI*50;
   const wk=weekGymDays(),m=mondayOf(new Date()),tk=todayKey();
   let week='';for(let i=0;i<7;i++){const x=new Date(m);x.setDate(m.getDate()+i);const k=dkey(x),dd=S.days[k];const cls=dd&&dd.gymMin>=30?'done':dd&&dd.gymMin>0?'part':'';week+=`<div class="wd ${cls} ${k===tk?'today':''}"><i>${dd&&dd.gymMin?dd.gymMin:''}</i>${WD[i]}</div>`}
-  const sess=d.gym.slice().reverse().map(s=>{const t=new Date(s.t);return `<div class="row"><div class="rm">${s.type}<small>${pad(t.getHours())}:${pad(t.getMinutes())} Uhr</small></div><div class="rv">${s.m} Min</div></div>`}).join('');
+  const sess=d.gym.slice().reverse().map(s=>{const t=new Date(s.t);return `<div class="row"><div class="rm">${esc(s.type)}${s.sid?'<i class="svtag">Strava</i>':''}<small>${pad(t.getHours())}:${pad(t.getMinutes())} Uhr · ${Number(s.kcal)>0?'':'≈ '}${fmtInt(sessionKcal(s,tk))} kcal</small></div><div class="rv">${s.m} Min</div><button class="del" data-gdel="${esc(gymKey(s))}" aria-label="Einheit löschen">${ICON.trash}</button></div>`}).join('');
+  const est=sessionKcal({m:G.min,type:G.type},tk),sk=sportKcal(tk);
   return `<div class="hero"><div class="ring"><svg viewBox="0 0 112 112"><circle cx="56" cy="56" r="50" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="9"/><circle cx="56" cy="56" r="50" fill="none" stroke="url(#gg)" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C*p} ${C}"/><defs><linearGradient id="gg"><stop offset="0" stop-color="#ffd36e"/><stop offset="1" stop-color="#f08a2a"/></linearGradient></defs></svg><div class="rc"><b>${d.gymMin}</b><small>/ 30 Min</small></div></div>
   <p>${d.meal?`<strong>Futter für heute verdient.</strong> ${S.name} ist satt. Weitere Einheiten geben Bonus-XP.`:d.gymMin>0?`Noch <strong>${30-d.gymMin} Min</strong>, dann läuft ${S.name} zu seinem Napf.`:`Trainiere heute mindestens <strong>30 Minuten</strong> und ${S.name} bekommt seine Mahlzeit.`}</p></div>
+  ${stravaLineHTML()}
   <div class="lbl">Dauer</div>
   <div class="stepper"><button data-gs="-5" aria-label="5 Minuten weniger">−</button><div class="sv"><b id="gMin">${G.min}</b><small>Min</small></div><button data-gs="5" aria-label="5 Minuten mehr">+</button></div>
   <div class="pills">${[20,30,45,60,90].map(m=>`<button class="pill ${G.min===m?'on':''}" data-gm="${m}">${m} Min</button>`).join('')}</div>
   <div class="lbl">Art</div>
   <div class="pills">${TYPES.map(t=>`<button class="pill ${G.type===t?'on':''}" data-gt="${t}">${t}</button>`).join('')}</div>
+  <p class="hint gest">Verbrennt etwa ${fmtInt(est)} kcal${weightAt(tk)?'':', geschätzt mit 75 kg. Mit deinem Gewicht wird es genauer'}.</p>
   <button class="cta" id="gymSave">${d.meal?'Weitere Einheit eintragen':G.min+d.gymMin>=30?'Eintragen & '+S.name+' füttern':'Training eintragen'}</button>
   <h3 class="sec">Diese Woche <span>${wk} / ${S.settings.weekGoal} Gym-Tage</span></h3>
   <div class="week">${week}</div>
-  <h3 class="sec">Heute</h3>
-  ${sess?`<div class="card list">${sess}</div>`:`<p class="empty">Noch keine Einheit heute. Auch ein kurzes Workout zählt, die Minuten werden addiert.</p>`}`;
+  <h3 class="sec">Heute <span>${d.gym.length?fmtInt(sk)+' kcal verbrannt':''}</span></h3>
+  ${sess?`<div class="card list">${sess}</div>`:`<p class="empty">Noch keine Einheit heute. Auch ein kurzes Workout zählt, die Minuten werden addiert.${stravaOn()?' Trainings aus Strava erscheinen hier von selbst.':''}</p>`}`;
 }
 let WIN=null;
 function renderWeight(){
@@ -2210,6 +2550,7 @@ function renderSettings(){
   <div class="form"><div class="lbl">Gym-Wochenziel</div><div class="seg">${[2,3,4,5,6].map(n=>`<button data-wg="${n}" class="${st.weekGoal===n?'on':''}">${n} Tage</button>`).join('')}</div></div>
   <div class="form"><div class="lbl">Streak zählt, wenn …</div><div class="seg"><button data-rule="both" class="${st.rule==='both'?'on':''}">Gym + Gewicht</button><button data-rule="any" class="${st.rule==='any'?'on':''}">Eins von beiden</button><button data-rule="gym" class="${st.rule==='gym'?'on':''}">Nur Gym</button></div></div>
   <div class="card tog">Soundeffekte<button class="sw ${st.sound?'on':''}" id="setSound" aria-label="Sound umschalten" aria-pressed="${st.sound}"></button></div>
+  ${IN_CLAUDE?'':`<h3 class="sec">Strava</h3>${stravaCardHTML()}`}
   <h3 class="sec">Speicher</h3>
   <div class="card store" id="storeBox">${storeRows()}</div>
   <div class="btnrow"><button class="cta ghost" id="bkSave">Backup sichern</button><label class="cta ghost lbtn" for="impFile">Backup laden</label></div>
@@ -2218,7 +2559,7 @@ function renderSettings(){
   <p class="note">${IN_CLAUDE?'Dein Spielstand wird automatisch in deinem Claude-Konto gespeichert. ':''}Ein Backup ist eine Datei mit allem: Level, Streak, Gewichtsverlauf und Shop. Sichere sie in „Dateien“ oder iCloud Drive, dann kannst du DORI jederzeit wiederherstellen oder auf ein neues Handy umziehen.</p>
   <div class="btnrow"><button class="cta danger" id="rst">Spielstand zurücksetzen</button></div>
   <div id="rstBox" hidden class="card"><p class="note" style="margin-bottom:10px">Wirklich alles löschen? Level, Streak, Gewichtsverlauf und Shop-Items gehen verloren. Sichere vorher am besten ein Backup.</p><div class="btnrow"><button class="cta ghost" id="rstNo">Abbrechen</button><button class="cta danger" id="rstYes">Ja, alles löschen</button></div></div>
-  <p class="note">DORI · Version 1.1 · Ein Tag zählt nach deinem Kalender und startet um Mitternacht neu.</p>`;
+  <p class="note">DORI · Version 1.2 · Ein Tag zählt nach deinem Kalender und startet um Mitternacht neu.</p>`;
 }
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -2244,6 +2585,17 @@ $('#sheetBody').addEventListener('click',e=>{
   if(ds.gm){G.min=Number(ds.gm);renderSheet();return}
   if(ds.gt){G.type=ds.gt;renderSheet();return}
   if(b.id==='gymSave'){logGym(G.min,G.type);return}
+  if(ds.gdel){deleteGym(todayKey(),ds.gdel);return}
+  // strava
+  if(b.id==='svSetup'){openStravaSettings();return}
+  if(b.id==='svSync'){buzz(10);stravaSync(true);return}
+  if(b.id==='svGo'){stravaConnect(false);return}
+  if(b.id==='svOff'){stravaDisconnect();return}
+  if(b.id==='svForget'){stravaForget();return}
+  if(b.id==='svIcon'){saveIcon();return}
+  if(b.id==='svCodeT'){const bx=$('#svCodeBox');if(bx){bx.hidden=!bx.hidden;if(!bx.hidden)$('#svCode').focus()}return}
+  if(b.id==='svCodeGo'){stravaUseCode();return}
+  if(ds.copy){copyText(ds.copy);return}
   if(ds.ws){const v=parseKg($('#wIn').value);WIN=Math.round(((isNaN(v)?WIN:v)+Number(ds.ws))*10)/10;$('#wIn').value=fmtKg(WIN);return}
   if(b.id==='wSave'){const v=parseKg($('#wIn').value);if(isNaN(v)||v<25||v>350){toast('Bitte ein Gewicht zwischen 25 und 350 kg eingeben.');return}WIN=Math.round(v*10)/10;logWeight(WIN);return}
   if(ds.wdel){const d=S.days[ds.wdel];if(d){d.weight=null;d.wt=Date.now();commit(true);renderSheet();refreshHUD(true);toast('Eintrag gelöscht')}return}
@@ -2266,9 +2618,10 @@ $('#sheetBody').addEventListener('input',e=>{
   if(e.target.id==='fq'){FS.q=e.target.value;const q=FS.q.trim();if(FS.mode!=='search'){FS.mode='search';FS.sel=null}
     if(/^\d+$/.test(q)&&(q.length===13||q.length===8)&&eanValid(q)){e.target.blur();lookup(q)}else renderFoodPanel();return}
   if(e.target.id==='fAmt'){const v=numOr(e.target.value);if(v!=null){FS.amt=clamp(v,0,5000);updateAmt(true)}return}
+  if(e.target.id==='svCid'||e.target.id==='svSec'){svCreds();return}
   if(e.target.id==='setName'){S.name=e.target.value.trim()||'Dori';commit();refreshHUD(true)}if(e.target.id==='wIn'){const v=parseKg(e.target.value);if(!isNaN(v))WIN=v}});
 const parseKg=s=>parseFloat(String(s).replace(',','.').replace(/[^\d.]/g,''));
-$('#sheetBody').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='wIn'){e.preventDefault();$('#wSave').click()}if(e.key==='Enter'&&e.target.id==='fq'){e.preventDefault();runQuery()}if(e.key==='Enter'&&e.target.id==='fAmt'){e.preventDefault();e.target.blur()}});
+$('#sheetBody').addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target.id==='wIn'){e.preventDefault();$('#wSave').click()}if(e.key==='Enter'&&e.target.id==='fq'){e.preventDefault();runQuery()}if(e.key==='Enter'&&e.target.id==='fAmt'){e.preventDefault();e.target.blur()}if(e.key==='Enter'&&e.target.id==='svCode'){e.preventDefault();stravaUseCode()}if(e.key==='Enter'&&(e.target.id==='svCid'||e.target.id==='svSec')){e.preventDefault();e.target.blur()}});
 
 /* =========================================================
    INPUT
@@ -2325,17 +2678,26 @@ function frame(now){
 document.addEventListener('visibilitychange',()=>{
   if(!S)return;
   if(document.hidden){save();if(Cloud.dirty)Cloud.flush();running=false}
-  else{offlineCatchUp();S.last=Date.now();lastT=performance.now();refreshHUD(true);if(!running){running=true;requestAnimationFrame(frame)}}
+  else{offlineCatchUp();S.last=Date.now();lastT=performance.now();refreshHUD(true);if(!running){running=true;requestAnimationFrame(frame)}
+    if(stravaOn()&&Date.now()-(Number(ST.last)||0)>10*60e3)setTimeout(()=>stravaSync(false),900)}
 });
+window.addEventListener('online',()=>{if(S&&stravaOn()&&Date.now()-(Number(ST.last)||0)>10*60e3)setTimeout(()=>stravaSync(false),1500)});
 window.addEventListener('pagehide',()=>{if(S){save();if(Cloud.dirty)Cloud.flush()}});
 let rt;window.addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(layout,120)});
 document.addEventListener('gesturestart',e=>e.preventDefault(),{passive:false});
 
 function foodIntro(){
-  S.seenFood=true;save();
-  modal(`<div class="lbl">Neu in DORI</div><h3>Was du isst, sieht man an ${esc(S.name)}</h3><p>Scanne den Strichcode deiner Lebensmittel oder tippe die Artikelnummer ein. Isst du deutlich mehr als dein Tagesbudget oder viel Süsses, wird ${esc(S.name)} runder. Isst du zu wenig, wird er dünn. Ausgewogen bleibt er in Topform.</p>
+  S.seenFood=true;S.seenEnergy=true;save();
+  modal(`<div class="lbl">Neu in DORI</div><h3>Was du isst, sieht man an ${esc(S.name)}</h3><p>Scanne den Strichcode deiner Lebensmittel oder tippe die Artikelnummer ein. Isst du mehr, als du verbrauchst, wird ${esc(S.name)} runder. Sport macht ihn wieder schlanker. Isst du lange zu wenig, wird er dünn.</p>
   <div class="rules"><div class="rule"><em>📷</em><span><b>Scannen</b> oder die Nummer unter dem Strichcode eintippen</span></div><div class="rule"><em>🐕</em><span>${esc(S.name)}s Figur geht von <b>1 bis 9</b>, ideal ist die Mitte</span></div><div class="rule"><em>⚙️</em><span>Die Einstellungen findest du jetzt oben beim <b>Zahnrad</b></span></div></div>
   <button class="cta" id="mOk">Ausprobieren</button><button class="cta ghost" id="mLater">Später</button>`,m=>{m.querySelector('#mOk').onclick=()=>{closeModal();openTab('food')};m.querySelector('#mLater').onclick=closeModal});
+}
+function energyIntro(){
+  S.seenEnergy=true;save();
+  modal(`<div class="lbl">Neu in DORI</div><h3>Essen rein, Sport raus</h3><p>${esc(S.name)}s Figur folgt jetzt deiner Energiebilanz. Isst du mehr, als du verbrauchst, wird er sofort runder. Training verbrennt Kalorien und macht ihn wieder schlanker.</p>
+  <div class="rules"><div class="rule"><em>🍽️</em><span><b>Gegessen</b> minus <b>Grundbedarf</b> minus <b>Sport</b> ergibt deine Bilanz</span></div>${IN_CLAUDE?'':`<div class="rule"><em>🔥</em><span>Verbinde <b>Strava</b>, dann kommen Trainings und Kalorien von selbst</span></div>`}</div>
+  ${IN_CLAUDE?'<button class="cta" id="mOk">Verstanden</button>':'<button class="cta svbtn" id="mSv">Strava verbinden</button><button class="cta ghost" id="mOk">Später</button>'}`,
+  m=>{m.querySelector('#mOk').onclick=closeModal;const sv=m.querySelector('#mSv');if(sv)sv.onclick=()=>{closeModal();openStravaSettings()}});
 }
 function installPrompt(){
   S.installSeen=Date.now();commit();
@@ -2356,19 +2718,34 @@ async function start(){
   if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>layout());
   requestPersist();
   Cloud.init(had);
-  if(!S.intro)setTimeout(()=>{if(!S.intro)intro()},900);
+  await loadSTBackup();
+  const cb=stravaCallback(); // back from Strava's login page?
+  if(!cb&&stravaOn())setTimeout(()=>stravaSync(false),1500);
+  if(cb){} // the Strava step shows its own messages
+  else if(!S.intro)setTimeout(()=>{if(!S.intro)intro()},900);
   else if(canInstall()&&!S.installSeen)setTimeout(installPrompt,1200);
   else if(!S.seenFood)setTimeout(foodIntro,1400);
+  else if(!S.seenEnergy)setTimeout(energyIntro,1400);
   else setTimeout(maybeBackupNag,4000);
 }
 if(window.claude&&window.claude.hot&&window.claude.hot.ready)window.claude.hot.ready(start);else start();
 </script>
 
 <script>
+window.DORI_BUILD='0ba1b73cae';
 if('serviceWorker' in navigator&&(location.protocol==='https:'||location.hostname==='localhost'||location.hostname==='127.0.0.1')){
-  // a new version takes over in the background; reload once at a quiet moment
+  // a new version takes over in the background. Reload (at a quiet moment) only if this page is
+  // older than it, e.g. because it came from the offline cache. A page that is already new stays.
   const hadController=!!navigator.serviceWorker.controller;let reloading=false;
-  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(!hadController||reloading)return;reloading=true;if(window.DORI_SAFE_RELOAD)window.DORI_SAFE_RELOAD();else location.reload()});
+  const reloadNow=()=>{if(reloading)return;reloading=true;if(window.DORI_SAFE_RELOAD)window.DORI_SAFE_RELOAD();else location.reload()};
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!hadController||reloading)return;
+    const c=navigator.serviceWorker.controller;if(!c){reloadNow();return}
+    let answered=false;const ch=new MessageChannel();
+    ch.port1.onmessage=e=>{answered=true;if(e.data!==window.DORI_BUILD)reloadNow()};
+    try{c.postMessage('build',[ch.port2])}catch(e){reloadNow();return}
+    setTimeout(()=>{if(!answered)reloadNow()},2000);
+  });
   window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').then(reg=>{document.addEventListener('visibilitychange',()=>{if(!document.hidden)reg.update().catch(()=>{})})}).catch(()=>{})});
 }
 </script>
